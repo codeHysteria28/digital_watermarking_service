@@ -1,9 +1,8 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean, Float, Text
-from sqlalchemy.orm import relationship, declarative_base
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from enum import Enum
-
-Base = declarative_base()
+from .base import Base
 
 class VerificationType(str, Enum):
     AUTHENTICITY = "authenticity"      # Verify watermark presence/ownership
