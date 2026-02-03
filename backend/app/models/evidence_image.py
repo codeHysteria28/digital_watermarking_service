@@ -46,5 +46,5 @@ class EvidenceImage(Base):
     processed_at = Column(DateTime(timezone=True), nullable=True)
 
     # Relationships
-    user = relationship("User", back_populates="evidence_images")
+    user = relationship("User", back_populates="evidence_image")
     verification_logs = relationship("VerificationLog", back_populates="evidence_image")
