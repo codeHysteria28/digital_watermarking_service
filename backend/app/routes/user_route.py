@@ -1,12 +1,20 @@
 from fastapi import APIRouter, HTTPException, status, Depends
-from schemas.user import UserCreate, UserBase, UserResponse
-from models.User import User
+from schemas.user import *
+from models.user import User
+from models.evidence_image import EvidenceImage, ImageStatus
+from models.verification_log import VerificationLog
 from typing import List
 from core.database import get_db
-from core.security import hash_password
+from core.security import *
 from sqlalchemy.orm import Session
+from sqlalchemy import func as sql_func
+import os
+from dotenv import load_dotenv
+load_dotenv()
 
-router = APIRouter(prefix="/api/v1/users", tags=["users"])
+SECRET_KEY = os.getenv("SECRET_KEY")
+
+router = APIRouter(prefix="/api/v1/auth", tags=["Users"])
 
 # all users = will be deleted later as it's not needed
 @router.get("/users", response_model=List[UserResponse])
@@ -15,18 +23,19 @@ def get_users(db: Session = Depends(get_db)):
 
     return users
 
-@router.post("/users", response_model=UserResponse)
-def create_user(user:UserCreate, db: Session = Depends(get_db)):
+# register new user
+@router.post("/user/register", response_model=UserResponse)
+def user_register(user:UserCreate, db: Session = Depends(get_db)):
     # check if user already exists
     existing_user = db.query(User).filter(User.email == user.email).first()
 
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already regisstered"
+            detail="Email already registered"
         )
     
-    # Hash the passowrd
+    # Hash the password
     hashed_password = hash_password(user.password)
 
     # Create new user
@@ -41,3 +50,64 @@ def create_user(user:UserCreate, db: Session = Depends(get_db)):
     db.refresh(new_user)
 
     return new_user
+
+# login user
+@router.post("/user/login", response_model=Token)
+def user_login(user: UserLogin, db: Session = Depends(get_db)):
+    # check for user
+    db_user = db.query(User).filter(User.email == user.email).first()
+
+    if not db_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid credentials"
+        )
+    
+    # check password
+    if not verify_password(user.password, str(db_user.hashed_password)):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid credentials"
+        )
+    
+    # issue access token
+    access_token = create_access_token(data={"sub": db_user.email})
+
+    return Token(access_token=access_token)
+
+# user profile
+
+@router.get("/user/profile", response_model=UserProfile)
+def user_profile(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    # Count total images uploaded by this user
+    total_images = db.query(sql_func.count(EvidenceImage.id)).filter(
+        EvidenceImage.user_id == user.id
+    ).scalar() or 0
+
+    # Count total verifications performed by this user
+    total_verifications = db.query(sql_func.count(VerificationLog.id)).filter(
+        VerificationLog.verified_by_user_id == user.id
+    ).scalar() or 0
+
+    # count images grouped by status
+    status_counts = db.query(
+        EvidenceImage.status, sql_func.count(EvidenceImage.id)
+    ).filter(
+        EvidenceImage.user_id == user.id
+    ).group_by(EvidenceImage.status).all()
+
+    images_by_status = {status.value: count for status, count in status_counts}
+
+    # Build a dict from the ORM object + computed fields
+    profile_data = {
+        "id": user.id,
+        "email": user.email,
+        "name": user.name,
+        "created_at": user.created_at,
+        "updated_at": user.updated_at,
+        "total_images_uploaded": total_images,
+        "total_verifications": total_verifications,
+        "images_by_status": images_by_status
+    }
+
+    return UserProfile.model_validate(profile_data)
