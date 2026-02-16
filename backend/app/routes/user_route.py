@@ -1,20 +1,18 @@
 from fastapi import APIRouter, HTTPException, status, Depends
-from fastapi.security import OAuth2PasswordBearer
 from schemas.user import *
 from models.user import User
+from models.evidence_image import EvidenceImage, ImageStatus
+from models.verification_log import VerificationLog
 from typing import List
 from core.database import get_db
 from core.security import *
 from sqlalchemy.orm import Session
+from sqlalchemy import func as sql_func
 import os
 from dotenv import load_dotenv
-import jwt
-from jwt import PyJWTError
 load_dotenv()
 
 SECRET_KEY = os.getenv("SECRET_KEY")
-
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/user/login")
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Users"])
 
@@ -77,34 +75,39 @@ def user_login(user: UserLogin, db: Session = Depends(get_db)):
 
     return Token(access_token=access_token)
 
-# Get current user
-def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+# user profile
 
-    try:
+@router.get("/user/profile", response_model=UserProfile)
+def user_profile(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    # Count total images uploaded by this user
+    total_images = db.query(sql_func.count(EvidenceImage.id)).filter(
+        EvidenceImage.user_id == user.id
+    ).scalar() or 0
 
-        # decode token
-        if not SECRET_KEY:
-            raise ValueError("SECRET_KEY env variable not found")
-    
-        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-    
-        # extracting the email from payload
-        email = payload.get("sub")
+    # Count total verifications performed by this user
+    total_verifications = db.query(sql_func.count(VerificationLog.id)).filter(
+        VerificationLog.verified_by_user_id == user.id
+    ).scalar() or 0
 
-        if email is None:
-            raise credentials_exception
+    # count images grouped by status
+    status_counts = db.query(
+        EvidenceImage.status, sql_func.count(EvidenceImage.id)
+    ).filter(
+        EvidenceImage.user_id == user.id
+    ).group_by(EvidenceImage.status).all()
 
-        # check for email
-        db_user = db.query(User).filter(User.email == email).first()
+    images_by_status = {status.value: count for status, count in status_counts}
 
-        if not db_user:
-            raise credentials_exception
-    except PyJWTError:
-        raise credentials_exception
-    
-    return db_user
+    # Build a dict from the ORM object + computed fields
+    profile_data = {
+        "id": user.id,
+        "email": user.email,
+        "name": user.name,
+        "created_at": user.created_at,
+        "updated_at": user.updated_at,
+        "total_images_uploaded": total_images,
+        "total_verifications": total_verifications,
+        "images_by_status": images_by_status
+    }
+
+    return UserProfile.model_validate(profile_data)

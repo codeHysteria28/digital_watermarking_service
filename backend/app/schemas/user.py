@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, ConfigDict
 from datetime import datetime
 
 # Base schema for shared fields
@@ -34,6 +34,8 @@ class UserLogin(BaseModel):
 
 # Schema for API responses
 class UserResponse(UserBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
@@ -46,3 +48,10 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     user_id: int | None = None
     email: str | None = None
+
+# Schema for user profile
+class UserProfile(UserResponse):
+    # activity summary
+    total_images_uploaded: int = 0
+    total_verifications: int = 0
+    images_by_status: dict = {}
