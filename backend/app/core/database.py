@@ -1,12 +1,14 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-import os
-from dotenv import load_dotenv
+from core.keyvault_auth import get_secret
 
-load_dotenv()
+db_host = get_secret("POSTGRE-URL").value
+db_pass = get_secret("POSTGRE-PASSWORD").value
+db_name = get_secret("POSTGRE-DB").value
+db_user = get_secret("POSTGRE-USER").value
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_URL = f"postgresql://{db_user}:{db_pass}@{db_host}/{db_name}?sslmode=require"
 
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL env variable is not set")

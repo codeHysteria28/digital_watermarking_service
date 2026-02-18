@@ -14,7 +14,7 @@ load_dotenv()
 
 SECRET_KEY = os.getenv("SECRET_KEY")
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/user/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/user/token")
 
 def hash_password(password: str) -> str:
     """Hash a password using bcrypt"""
