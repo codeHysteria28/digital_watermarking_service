@@ -6,10 +6,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 STORAGE_ACCOUNT_URL = os.getenv("AZURE_STORAGE_BLOB_URL")
-CONTAINER_NAME = "evidence"
+CONTAINER_NAME = os.getenv("AZURE_STORAGE_CONTAINER_NAME")
 
 if not STORAGE_ACCOUNT_URL:
     raise ValueError("Storage account url variable not found")
+
+if not CONTAINER_NAME:
+    raise ValueError("Container name variable not found")
 
 blob_service_client = BlobServiceClient(STORAGE_ACCOUNT_URL, credential=DefaultAzureCredential())
 
