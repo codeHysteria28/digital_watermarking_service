@@ -6,11 +6,13 @@ from core.database import get_db
 from core.security import get_current_user
 from sqlalchemy.orm import Session
 from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile
+from fastapi.responses import StreamingResponse
 from PIL import Image
 from core.blob_storage_auth import get_or_create_container
 import hashlib
 from PIL.ExifTags import TAGS
 import json
+from typing import List
 
 router = APIRouter(prefix="/api/v1/images", tags=["Evidence Images"])
 
@@ -90,3 +92,81 @@ async def upload_image(
     db.refresh(db_image)
 
     return db_image
+
+# Get images (List)
+@router.get("/", response_model=List[EvidenceImageRead])
+def get_all_images(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return db.query(EvidenceImage).filter(EvidenceImage.user_id == user.id).all()
+
+# Get a specific image by ID
+@router.get("/{image_id}", response_model=EvidenceImageRead)
+def get_image(
+    image_id: int, 
+    user: User = Depends(get_current_user), 
+    db: Session = Depends(get_db)):
+
+    image = db.query(EvidenceImage).filter(EvidenceImage.user_id == user.id).filter(EvidenceImage.id == image_id).first()
+
+    if image is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No image with ID: {image_id} found"
+        )
+    
+    return image
+
+# Download endpoint to get single image details
+@router.get("/download/{image_id}")
+async def download_image(
+    image_id: int, 
+    user: User = Depends(get_current_user), 
+    db: Session = Depends(get_db)):
+
+    image = db.query(EvidenceImage).filter(EvidenceImage.user_id == user.id).filter(EvidenceImage.id == image_id).first()
+
+    if image is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No image with ID: {image_id} found"
+        )
+    
+    container_client = get_or_create_container()
+    blob_client = container_client.get_blob_client(str(image.original_path))
+    download_image = blob_client.download_blob().readall()
+    image_bytes = io.BytesIO(download_image)
+
+    return StreamingResponse(image_bytes, 
+                             media_type=str(image.mime_type), 
+                             headers={"Content-Disposition": f'attachment; filename="{image.filename}"'})
+
+# Delete endpoint to remove the image from database and storage account
+@router.delete("/{image_id}")
+def delete_image(image_id: int,
+                 user: User = Depends(get_current_user),
+                 db: Session = Depends(get_db)):
+    
+    image = db.query(EvidenceImage).filter(EvidenceImage.user_id == user.id).filter(EvidenceImage.id == image_id).first()
+
+    if image is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No image with ID: {image_id} found"
+        )
+    
+    container_client = get_or_create_container()
+    blob_client = container_client.get_blob_client(str(image.original_path))
+
+    # try to delete the image from storage account
+    try:
+        blob_client.delete_blob()
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete an image"
+        )
+    
+    # delete from DB
+    db.delete(image)
+    db.commit()
+
+    return status.HTTP_204_NO_CONTENT

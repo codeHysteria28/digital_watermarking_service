@@ -17,13 +17,6 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Users"])
 
-# all users = will be deleted later as it's not needed
-@router.get("/users", response_model=List[UserResponse])
-def get_users(db: Session = Depends(get_db)):
-    users = db.query(User).all()
-
-    return users
-
 # register new user
 @router.post("/user/register", response_model=UserResponse)
 def user_register(user:UserCreate, db: Session = Depends(get_db)):
