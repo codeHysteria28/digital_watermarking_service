@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from datetime import datetime
 from routes.user_route import router as users_router
 from routes.image_route import router as images_router
+from routes.verification_route import router as verification_router
 from models.user import Base
 from core.database import engine
 
@@ -14,6 +15,7 @@ app = FastAPI(
 )
 app.include_router(users_router)
 app.include_router(images_router)
+app.include_router(verification_router)
 
 @app.get("/health", status_code=200)
 def health_check():
