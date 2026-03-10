@@ -1,11 +1,14 @@
 import io
+import logging
 from models.evidence_image import *
 from models.user import User
 from schemas.evidence_image import *
+from schemas.verification_log import VerificationRequest, VerificationLogRead
 from core.database import get_db
 from core.security import get_current_user
+from services.watermark_service import process_watermark, verify_image
 from sqlalchemy.orm import Session
-from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Request, status, File, UploadFile
 from fastapi.responses import StreamingResponse
 from PIL import Image
 from core.blob_storage_auth import get_or_create_container
@@ -13,6 +16,8 @@ import hashlib
 from PIL.ExifTags import TAGS
 import json
 from typing import List
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/images", tags=["Evidence Images"])
 
@@ -91,6 +96,13 @@ async def upload_image(
     db.commit()
     db.refresh(db_image)
 
+    # Automatically embed watermark after upload
+    try:
+        db_image = await process_watermark(db_image.id, user.id, db)
+    except Exception as e:
+        logger.error(f"Watermark embedding failed for image {db_image.id}: {e}")
+        # Image is still saved; status will be FAILED so it can be retried
+
     return db_image
 
 # Get images (List)
@@ -165,8 +177,102 @@ def delete_image(image_id: int,
             detail="Failed to delete an image"
         )
     
+    # Also delete watermarked blob if it exists
+    if image.watermarked_path:
+        try:
+            wm_blob = container_client.get_blob_client(str(image.watermarked_path))
+            wm_blob.delete_blob()
+        except Exception:
+            pass  # best-effort cleanup
+
     # delete from DB
     db.delete(image)
     db.commit()
 
     return status.HTTP_204_NO_CONTENT
+
+
+# Re-trigger watermark embedding (e.g. after a failure)
+@router.post("/{image_id}/watermark", response_model=EvidenceImageRead)
+async def watermark_image(
+    image_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)):
+
+    try:
+        image = await process_watermark(image_id, user.id, db)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Watermark embedding failed",
+        )
+
+    return image
+
+
+# Verify watermarked image authenticity and tampering
+@router.post("/{image_id}/verify", response_model=VerificationLogRead)
+async def verify_image_endpoint(
+    image_id: int,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    verification_type: str = "full"):
+
+    try:
+        log = await verify_image(
+            image_id=image_id,
+            user_id=user.id,
+            db=db,
+            verification_type=verification_type,
+            request_ip=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Verification failed",
+        )
+
+    return log
+
+
+# Download the watermarked version of an image
+@router.get("/download-watermarked/{image_id}")
+async def download_watermarked_image(
+    image_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)):
+
+    image = (
+        db.query(EvidenceImage)
+        .filter(EvidenceImage.user_id == user.id, EvidenceImage.id == image_id)
+        .first()
+    )
+
+    if image is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No image with ID: {image_id} found",
+        )
+
+    if not image.watermarked_path:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Image has not been watermarked yet",
+        )
+
+    container_client = get_or_create_container()
+    blob_client = container_client.get_blob_client(str(image.watermarked_path))
+    watermarked_data = blob_client.download_blob().readall()
+    image_bytes = io.BytesIO(watermarked_data)
+
+    return StreamingResponse(
+        image_bytes,
+        media_type="image/png",
+        headers={"Content-Disposition": f'attachment; filename="watermarked_{image.filename}"'},
+    )

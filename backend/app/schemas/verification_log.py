@@ -21,7 +21,7 @@ class VerificationRequest(BaseModel):
 # Schema for API response (what client sees)
 class VerificationLogRead(BaseModel):
     id: int
-    image_id: int
+    image_id: Optional[int] = None
     is_authentic: bool
     is_tampered: bool
     confidence_score: float = Field(..., ge=0.0, le=1.0)
@@ -40,7 +40,7 @@ class VerificationLogRead(BaseModel):
 # Minimal schema for list/history views
 class VerificationLogSummary(BaseModel):
     id: int
-    image_id: int
+    image_id: Optional[int] = None
     is_authentic: bool
     is_tampered: bool
     confidence_score: float
