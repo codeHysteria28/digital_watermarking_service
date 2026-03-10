@@ -1,7 +1,8 @@
 from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi.security import OAuth2PasswordRequestForm
 from schemas.user import *
 from models.user import User
-from models.evidence_image import EvidenceImage, ImageStatus
+from models.evidence_image import EvidenceImage
 from models.verification_log import VerificationLog
 from typing import List
 from core.database import get_db
@@ -15,13 +16,6 @@ load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY")
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Users"])
-
-# all users = will be deleted later as it's not needed
-@router.get("/users", response_model=List[UserResponse])
-def get_users(db: Session = Depends(get_db)):
-    users = db.query(User).all()
-
-    return users
 
 # register new user
 @router.post("/user/register", response_model=UserResponse)
@@ -51,6 +45,13 @@ def user_register(user:UserCreate, db: Session = Depends(get_db)):
 
     return new_user
 
+@router.post("/user/token", response_model=Token, include_in_schema=False)
+def user_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    db_user = db.query(User).filter(User.email == form_data.username).first()
+    if not db_user or not verify_password(form_data.password, str(db_user.hashed_password)):
+        raise HTTPException(status_code=400, detail="Invalid credentials")
+    return Token(access_token=create_access_token(data={"sub": db_user.email}))
+
 # login user
 @router.post("/user/login", response_model=Token)
 def user_login(user: UserLogin, db: Session = Depends(get_db)):
@@ -76,7 +77,6 @@ def user_login(user: UserLogin, db: Session = Depends(get_db)):
     return Token(access_token=access_token)
 
 # user profile
-
 @router.get("/user/profile", response_model=UserProfile)
 def user_profile(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     # Count total images uploaded by this user
