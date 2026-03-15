@@ -6,10 +6,10 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
-from core.blob_storage_auth import get_or_create_container
-from models.evidence_image import EvidenceImage, ImageStatus
-from models.verification_log import VerificationLog, VerificationType
-from services.watermark_engine import (
+from app.core.blob_storage_auth import get_or_create_container
+from app.models.evidence_image import EvidenceImage, ImageStatus
+from app.models.verification_log import VerificationLog, VerificationType
+from app.services.watermark_engine import (
     ALGORITHM_VERSION,
     generate_payload,
     embed_watermark,

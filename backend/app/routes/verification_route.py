@@ -8,14 +8,14 @@ from PIL import Image
 from sqlalchemy.orm import Session
 from typing import List
 
-from core.database import get_db
-from core.security import get_current_user
-from models.evidence_image import EvidenceImage
-from models.user import User
-from models.verification_log import VerificationLog
-from schemas.verification_log import VerificationLogRead, VerificationLogSummary
-from services.watermark_engine import extract_watermark, detect_tampering, ALGORITHM_VERSION
-from services.watermark_service import verify_image, _download_blob
+from app.core.database import get_db
+from app.core.security import get_current_user
+from app.models.evidence_image import EvidenceImage
+from app.models.user import User
+from app.models.verification_log import VerificationLog
+from app.schemas.verification_log import VerificationLogRead, VerificationLogSummary
+from app.services.watermark_engine import extract_watermark, detect_tampering, ALGORITHM_VERSION
+from app.services.watermark_service import verify_image, _download_blob
 
 logger = logging.getLogger(__name__)
 

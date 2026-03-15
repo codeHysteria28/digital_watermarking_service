@@ -1,6 +1,6 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from core.keyvault_auth import get_secret
+from app.core.keyvault_auth import get_secret
 
 db_host = get_secret("POSTGRE-URL").value
 db_pass = get_secret("POSTGRE-PASSWORD").value

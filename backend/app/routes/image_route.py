@@ -1,17 +1,17 @@
 import io
 import logging
-from models.evidence_image import *
-from models.user import User
-from schemas.evidence_image import *
-from schemas.verification_log import VerificationRequest, VerificationLogRead
-from core.database import get_db
-from core.security import get_current_user
-from services.watermark_service import process_watermark, verify_image
+from app.models.evidence_image import *
+from app.models.user import User
+from app.schemas.evidence_image import *
+from app.schemas.verification_log import VerificationRequest, VerificationLogRead
+from app.core.database import get_db
+from app.core.security import get_current_user
+from app.services.watermark_service import process_watermark, verify_image
 from sqlalchemy.orm import Session
 from fastapi import APIRouter, Depends, HTTPException, Request, status, File, UploadFile
 from fastapi.responses import StreamingResponse
 from PIL import Image
-from core.blob_storage_auth import get_or_create_container
+from app.core.blob_storage_auth import get_or_create_container
 import hashlib
 from PIL.ExifTags import TAGS
 import json

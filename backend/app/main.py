@@ -1,10 +1,10 @@
 from fastapi import FastAPI
 from datetime import datetime
-from routes.user_route import router as users_router
-from routes.image_route import router as images_router
-from routes.verification_route import router as verification_router
-from models.user import Base
-from core.database import engine
+from app.routes.user_route import router as users_router
+from app.routes.image_route import router as images_router
+from app.routes.verification_route import router as verification_router
+from app.models.base import Base
+from app.core.database import engine
 
 Base.metadata.create_all(bind=engine)
 

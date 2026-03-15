@@ -4,10 +4,10 @@ import jwt
 from datetime import datetime, timedelta, timezone
 import os
 from jwt import PyJWTError
-from core.database import get_db
+from app.core.database import get_db
 from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordBearer
-from models.user import User
+from app.models.user import User
 from dotenv import load_dotenv
 
 load_dotenv()

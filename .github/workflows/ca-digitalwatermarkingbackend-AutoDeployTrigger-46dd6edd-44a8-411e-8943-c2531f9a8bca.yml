@@ -34,16 +34,13 @@ jobs:
       - name: Build and push container image to registry
         uses: azure/container-apps-deploy-action@v2
         with:
-          appSourcePath: ${{ github.workspace }}
-          _dockerfilePathKey_: _dockerfilePath_
-          _targetLabelKey_: _targetLabel_
+          appSourcePath: ${{ github.workspace }}/backend
+          dockerfilePath: Dockerfile
           registryUrl: crfastapix.azurecr.io
           registryUsername: ${{ secrets.CADIGITALWATERMARKINGBACKEND_REGISTRY_USERNAME }}
           registryPassword: ${{ secrets.CADIGITALWATERMARKINGBACKEND_REGISTRY_PASSWORD }}
           containerAppName: ca-digitalwatermarkingbackend
           resourceGroup: rg-digital-watermarking-service
           imageToBuild: crfastapix.azurecr.io/ca-digitalwatermarkingbackend:${{ github.sha }}
-          _buildArgumentsKey_: |
-            _buildArgumentsValues_
 
 
