@@ -31,16 +31,31 @@ jobs:
           tenant-id: ${{ secrets.CADIGITALWATERMARKINGBACKEND_AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.CADIGITALWATERMARKINGBACKEND_AZURE_SUBSCRIPTION_ID }}
 
-      - name: Build and push container image to registry
+      - name: Login to container registry
+        uses: docker/login-action@v3
+        with:
+          registry: crfastapix.azurecr.io
+          username: ${{ secrets.CADIGITALWATERMARKINGBACKEND_REGISTRY_USERNAME }}
+          password: ${{ secrets.CADIGITALWATERMARKINGBACKEND_REGISTRY_PASSWORD }}
+
+      - name: Build and push backend image
+        run: |
+          docker build \
+            -f backend/Dockerfile \
+            -t crfastapix.azurecr.io/ca-digitalwatermarkingbackend:${{ github.sha }} \
+            backend
+          docker push crfastapix.azurecr.io/ca-digitalwatermarkingbackend:${{ github.sha }}
+
+      - name: Deploy published image to Container Apps
         uses: azure/container-apps-deploy-action@v2
         with:
-          appSourcePath: ${{ github.workspace }}/backend
-          dockerfilePath: Dockerfile
+          imageToDeploy: crfastapix.azurecr.io/ca-digitalwatermarkingbackend:${{ github.sha }}
           registryUrl: crfastapix.azurecr.io
           registryUsername: ${{ secrets.CADIGITALWATERMARKINGBACKEND_REGISTRY_USERNAME }}
           registryPassword: ${{ secrets.CADIGITALWATERMARKINGBACKEND_REGISTRY_PASSWORD }}
           containerAppName: ca-digitalwatermarkingbackend
           resourceGroup: rg-digital-watermarking-service
-          imageToBuild: crfastapix.azurecr.io/ca-digitalwatermarkingbackend:${{ github.sha }}
+          targetPort: 8000
+          ingress: external
 
 
