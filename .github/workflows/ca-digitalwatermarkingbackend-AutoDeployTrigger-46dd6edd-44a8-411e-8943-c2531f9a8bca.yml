@@ -7,7 +7,7 @@ on:
     branches: 
       [ main ]
     paths:
-    - '**'
+    - 'backend/**'
     - '.github/workflows/ca-digitalwatermarkingbackend-AutoDeployTrigger-46dd6edd-44a8-411e-8943-c2531f9a8bca.yml'
 
   # Allow manual trigger 
@@ -57,5 +57,3 @@ jobs:
           resourceGroup: rg-digital-watermarking-service
           targetPort: 8000
           ingress: external
-
-

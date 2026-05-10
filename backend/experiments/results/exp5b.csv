@@ -1,0 +1,4 @@
+endpoint,n,mean_ms,median_ms,p95_ms,min_ms,max_ms
+POST /api/v1/images/upload,10,329.1,242.1,1123.1,199.4,1123.1
+POST /api/v1/images/{id}/watermark,10,11.2,10.8,13.7,9.1,13.7
+POST /api/v1/images/{id}/verify,10,129.4,126.7,158.7,112.8,158.7
